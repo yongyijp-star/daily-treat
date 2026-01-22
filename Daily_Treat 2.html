@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Daily Treat</title>
+  <style>
+    :root{
+      --bg1:#ffffff;
+      --bg2:#fff1f2; /* rose-50 */
+      --card:#ffffffcc;
+      --border:#ffe4e6; /* rose-100 */
+      --tagbg:#ffe4e6;
+      --tagfg:#be123c; /* rose-700-ish */
+      --text:#18181b; /* zinc-900 */
+      --muted:#71717a; /* zinc-500 */
+      --muted2:#a1a1aa; /* zinc-400 */
+      --btn:#18181b;
+      --btnfg:#fff;
+      --btn2bg:#fff;
+      --btn2fg:#27272a;
+      --btn2border:#e4e4e7;
+      --quoteBg:#fff1f2b0;
+      --quoteBorder:#ffe4e6;
+      --shadow: 0 10px 30px rgba(0,0,0,.08);
+      --radius: 24px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      color:var(--text);
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:24px;
+      background: linear-gradient(to bottom, var(--bg1), var(--bg2));
+    }
+    .wrap{width:100%; max-width:420px;}
+    .card{
+      background:var(--card);
+      backdrop-filter: blur(10px);
+      border:1px solid var(--border);
+      border-radius: calc(var(--radius) + 8px);
+      box-shadow: var(--shadow);
+      padding:22px;
+    }
+    .top{
+      display:flex;
+      gap:16px;
+      justify-content:space-between;
+      align-items:flex-start;
+    }
+    .time{
+      font-size:12px;
+      letter-spacing:.04em;
+      color:var(--muted);
+    }
+    h1{
+      margin:6px 0 0 0;
+      font-size:24px;
+      line-height:1.2;
+      font-weight:700;
+    }
+    .subtitle{
+      margin-top:6px;
+      font-size:14px;
+      color:var(--muted);
+    }
+    .tag{
+      white-space:nowrap;
+      font-size:12px;
+      padding:7px 10px;
+      border-radius:999px;
+      background:var(--tagbg);
+      color:var(--tagfg);
+      border:1px solid #fecdd3;
+      margin-top:2px;
+    }
+    .quote{
+      margin-top:18px;
+      border-radius: calc(var(--radius));
+      background: var(--quoteBg);
+      border:1px solid var(--quoteBorder);
+      padding:18px 16px;
+    }
+    .quote p{
+      margin:0;
+      font-size:18px;
+      line-height:1.65;
+    }
+    .btnRow{
+      margin-top:18px;
+      display:flex;
+      gap:10px;
+    }
+    button{
+      appearance:none;
+      border:none;
+      cursor:pointer;
+      border-radius: 18px;
+      padding:12px 14px;
+      font-weight:650;
+      font-size:14px;
+      transition: transform .05s ease, opacity .15s ease, background .15s ease;
+    }
+    button:active{ transform: translateY(1px); }
+    .primary{
+      flex:1;
+      background:var(--btn);
+      color:var(--btnfg);
+      box-shadow: 0 8px 18px rgba(0,0,0,.12);
+    }
+    .primary:hover{ opacity:.92; }
+    .secondary{
+      background:var(--btn2bg);
+      color:var(--btn2fg);
+      border:1px solid var(--btn2border);
+      box-shadow: 0 4px 10px rgba(0,0,0,.06);
+    }
+    .secondary:hover{ background:#fafafa; }
+    .note{
+      margin-top:14px;
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.5;
+    }
+    .footer{
+      margin-top:14px;
+      text-align:center;
+      font-size:12px;
+      color:var(--muted2);
+    }
+    /* small fade when changing quote */
+    .fade{
+      animation: fade .22s ease;
+    }
+    @keyframes fade{
+      from{ opacity:.25; transform: translateY(2px); }
+      to{ opacity:1; transform: translateY(0); }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="top">
+        <div>
+          <div id="time" class="time">--:--</div>
+          <h1>Daily Treat</h1>
+          <div id="subtitle" class="subtitle"></div>
+        </div>
+        <div id="tag" class="tag"></div>
+      </div>
+
+      <div class="quote">
+        <p id="line"></p>
+      </div>
+
+      <div class="btnRow">
+        <button id="next" class="primary">別の言葉</button>
+        <button id="refresh" class="secondary" title="時間帯を再判定">更新</button>
+      </div>
+
+      <div class="note">
+        ※時間帯で言葉が切り替わります（朝 5:00–10:59 / 昼 11:00–17:59 / 夜 18:00–4:59）
+      </div>
+    </div>
+
+    <div class="footer">Small words. Big comfort.</div>
+  </div>
+
+  <script>
+    // ---- Time windows (local time) ----
+    // Morning: 05:00 - 10:59
+    // Noon:    11:00 - 17:59
+    // Night:   18:00 - 04:59
+    function getTimeSlot(date = new Date()){
+      const h = date.getHours();
+      if (h >= 5 && h <= 10) return "morning";
+      if (h >= 11 && h <= 17) return "noon";
+      return "night";
+    }
+
+    const copy = {
+      morning: { label: "Morning Treat", subtitle: "背中を押す言葉" },
+      noon:    { label: "Noon Treat",    subtitle: "労いと応援の言葉" },
+      night:   { label: "Night Treat",   subtitle: "癒しと称賛の言葉" }
+    };
+
+    const lines = {
+      morning: [
+        "今日もうまくいく。あなたは積み上げてきた人だから。",
+        "焦らなくていい。静かに強くいけばいい。",
+        "今日のあなたは、ちゃんと進められる。",
+        "大丈夫。あなたは「やる」と決めたらやれる。",
+        "今日の判断は、あなたの味方になる。",
+        "ここまで来た自分を信じていい。",
+        "今日の一歩は、小さくても価値がある。",
+        "自信は後からついてくる。まず動けばいい。",
+        "きれいに整えて、きれいに勝とう。",
+        "あなたは努力を習慣にできる人。強い。",
+        "昨日より少し軽やかにいこう。",
+        "うまくいく未来に、あなたは似合う。",
+        "今日もあなたのペースで十分。",
+        "自分を下げなくていい。あなたは立派。",
+        "迷ってもいい。ちゃんと前に進んでる。",
+        "あなたは、ちゃんと選べる人。",
+        "今日のあなたは、ちゃんと頼もしい。",
+        "期待していい日。あなたがいるから。",
+        "「できる」じゃなくて「やってきた」。それが強さ。",
+        "今日もあなたは、ちゃんと美しい。",
+        "勝ちにいく日じゃなくていい。整える日でもいい。",
+        "ちゃんと起きて、ちゃんと始めた。それだけで偉い。",
+        "あなたの言葉には力がある。今日も。",
+        "今日のあなたは、ちゃんと運がいい。",
+        "不安があっても進めるのが、あなたの強さ。",
+        "余裕は作れる。まず深呼吸。",
+        "今日のあなたは、きっと大丈夫。根拠は今まで。",
+        "静かに集中できる日になる。",
+        "あなたは、今日も自分を裏切らない。",
+        "今日の主役に戻ろう。あなたの一日だから。"
+      ],
+      noon: [
+        "午前だけでも十分すごい。ちゃんと進んでる。",
+        "ここまで崩れずに来たの、普通に強い。",
+        "今日のあなた、仕事が丁寧で美しい。",
+        "休憩は甘えじゃない。戦略。",
+        "もう十分頑張ってる。ちゃんと認めていい。",
+        "今の疲れは、ちゃんと頑張った証拠。",
+        "今日は「完璧」より「前進」で勝てる。",
+        "ここからは無理じゃなく、調整でいこう。",
+        "ちゃんと進めてる自分、偉い。",
+        "できることからでいい。あなたは積み上げ上手。",
+        "午後のあなたも、きっと頼もしい。",
+        "ひと息ついたら、また戻れる。大丈夫。",
+        "今日はあなたが味方でいれば勝ち。",
+        "周りより、自分の呼吸を優先して。",
+        "今日のあなた、ちゃんと価値を出してる。",
+        "しんどいのに投げないの、尊敬する。",
+        "あなたの集中力は信頼できる。",
+        "ここまでやれた。だからこの先もやれる。",
+        "ひとつ終わらせたら、ひとつ自分を褒めよう。",
+        "急がなくていい。丁寧な人が最後に勝つ。",
+        "あなたは今日も、ちゃんと頼れる存在。",
+        "「もう無理」って思っても、あなたは戻ってこれる。",
+        "あなたの選択は、ちゃんと正しい方向に向く。",
+        "午後は軽くいこう。重く抱えなくていい。",
+        "ちゃんとやってる人ほど疲れる。あなたは正しい。",
+        "少し水を飲んで、整えよう。",
+        "あなたの努力は、誰かを助けてる。",
+        "今日は十分やってる。あと少しだけ。",
+        "今のあなた、かっこいい。ちゃんと戦ってる。",
+        "午後も大丈夫。あなたなら仕上げられる。"
+      ],
+      night: [
+        "今日もおつかれさま。ここまで来た時点で立派。",
+        "今日を終えられたことが、もうすごい。",
+        "誰にも見えない努力を、ちゃんと続けてる。",
+        "今日はよく頑張った。静かに誇っていい。",
+        "ちゃんと耐えて、ちゃんと進んだ。偉い。",
+        "あなたは今日も、自分を守りながら戦った。",
+        "もう休んでいい。十分やった。",
+        "今日のあなた、ちゃんと美しかった。",
+        "疲れていても品がある。あなたってそういう人。",
+        "今日は「できたこと」だけ見ていい。",
+        "うまくいかなかった部分も、あなたの価値は減らない。",
+        "今日のあなたは、ちゃんと強かった。",
+        "よくここまで頑張った。抱きしめたいくらい。",
+        "あなたは、ちゃんと大切にされるべき人。",
+        "今夜は自分に優しくしていい。",
+        "整える時間は、あなたの未来への投資。",
+        "今日のあなた、十分にえらい。",
+        "明日のことは明日のあなたが上手にやる。",
+        "今夜は安心して力を抜こう。",
+        "あなたの頑張りは、ちゃんと報われていく。",
+        "今日も投げなかった。それが一番すごい。",
+        "ちゃんと自分を立て直せるの、才能。",
+        "あなたは今日も、誰かの希望だった。",
+        "今日はもう「おつかれさま」だけでいい。",
+        "あなたの丁寧さは、ちゃんと魅力になってる。",
+        "今日のあなた、十分にかっこよかった。",
+        "ここまで来た自分に、静かに拍手。",
+        "休む資格じゃなくて、休む権利がある。",
+        "あなたは今日も、あなたのままで良かった。",
+        "今夜くらい、自分を甘やかしてあげて。"
+      ]
+    };
+
+    let slot = getTimeSlot();
+    let index = 0;
+
+    const elTime = document.getElementById("time");
+    const elSubtitle = document.getElementById("subtitle");
+    const elTag = document.getElementById("tag");
+    const elLine = document.getElementById("line");
+    const btnNext = document.getElementById("next");
+    const btnRefresh = document.getElementById("refresh");
+
+    function formatTime(d){
+      return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    }
+
+    function pickRandom(pool, avoidIndex){
+      if (!pool || pool.length === 0) return 0;
+      if (pool.length === 1) return 0;
+      let next = Math.floor(Math.random() * pool.length);
+      if (typeof avoidIndex === "number" && next === avoidIndex){
+        next = (next + 1) % pool.length;
+      }
+      return next;
+    }
+
+    function render(){
+      const now = new Date();
+      elTime.textContent = formatTime(now);
+      elSubtitle.textContent = copy[slot].subtitle;
+      elTag.textContent = copy[slot].label;
+
+      const pool = lines[slot];
+      elLine.classList.remove("fade");
+      void elLine.offsetWidth; // reflow
+      elLine.textContent = pool[index];
+      elLine.classList.add("fade");
+    }
+
+    function setSlot(nextSlot){
+      slot = nextSlot;
+      const pool = lines[slot];
+      index = Math.floor(Math.random() * pool.length);
+      render();
+    }
+
+    function nextLine(){
+      const pool = lines[slot];
+      index = pickRandom(pool, index);
+      render();
+    }
+
+    // Initial
+    setSlot(slot);
+
+    // Buttons
+    btnNext.addEventListener("click", nextLine);
+    btnRefresh.addEventListener("click", () => setSlot(getTimeSlot()));
+
+    // Update time every minute and auto-switch slot if needed
+    setInterval(() => {
+      const next = getTimeSlot();
+      if (next !== slot){
+        setSlot(next);
+      } else {
+        elTime.textContent = formatTime(new Date());
+      }
+    }, 60 * 1000);
+  </script>
+</body>
+</html>
